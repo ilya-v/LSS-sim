@@ -69,7 +69,7 @@ def parameters_test(h, p, l):
     Vy = 0
     Vz = 0
     mass = abs(r.normalvariate(M_avg, 0.25*M_avg))
-    Sum = np.array([x, y, z, Vx, Vy, Vz, mass, 0])
+    Sum = np.array([x, y, z, Vx, Vy, Vz, mass, 0, 0, 0, 0])
     return Sum
 #_____________________________________________________________________________
 # Подфункция, позволяющая сгенерировать случайные параметры для тела (3.04.18)
@@ -83,14 +83,14 @@ def randomize_parameters():
     Vy = r.normalvariate(0, 4) * V_avg
     Vz = r.normalvariate(0, 4) * V_avg
     mass = abs(r.normalvariate(M_avg, 0.5*M_avg))
-    Sum = np.array([x, y, z, Vx, Vy, Vz, mass, 0])
+    Sum = np.array([x, y, z, Vx, Vy, Vz, mass, 0, 0, 0, 0])
     return Sum
 #_____________________________________________________________________________
 # Функция, создающая i*j*k тел
 def birth_test():
 #   Сначала создаем массив нулей, а затем заполняем его;
 #   тела находятся по первому индексу, параметры - по второму
-    Test_particles = np.zeros((i_test * j_test * k_test, 8))
+    Test_particles = np.zeros((i_test * j_test * k_test, 11))
     Num = 0
     for l in range(k_test):
         for p in range(j_test):
@@ -103,7 +103,7 @@ def birth_test():
 def birth_random(body_count):
 #   Сначала создаем массив нулей, а затем заполняем его;
 #   тела находятся по первому индексу, параметры - по второму
-    Random_particles = np.zeros((body_count, 8))
+    Random_particles = np.zeros((body_count, 11))
     for l in range(body_count):
         Random_particles[l] = randomize_parameters()
     return Random_particles
@@ -145,7 +145,7 @@ def Distribution(X0, X_size):
         n_x = int(m.floor(X0[N_local, 0] / Distance))
         n_y = int(m.floor(X0[N_local, 1] / Distance))
         n_z = int(m.floor(X0[N_local, 2] / Distance))
-        X0[N_local, 7] = n_x * n * n + n_y * n + n_z
+        X0[N_local, 10] = n_x * n * n + n_y * n + n_z
     return X0[X0[:, 7].argsort(kind='mergesort')]
 #_____________________________________________________________________________
 # Функция, вычисляющая параметры самых малых ячеек из параметров
@@ -158,7 +158,7 @@ def Particles_to_cell(Y, Y_size, order_n):
     for cell_num in range(n_total):
         R = np.zeros([6])
         if not part_num == Y_size:
-            while Y[part_num, 7] == cell_num:
+            while Y[part_num, 10] == cell_num:
                 R[0:3] += Y[part_num, 0:3] * Y[part_num, 6]
                 R[3] += Y[part_num, 6]
                 part_num += 1
@@ -316,6 +316,8 @@ def Tree_code_gravity(Y):
     Y_size = np.size(Y, 0)
 #    start = time.time()
     Y = Distribution(Y, Y_size)
+    Y[:, 3:6] += Y[:, 7:10] * time_step / 2
+    Y[:, 0:3] += Y[:, 3:6] * time_step
 #    computing_time = time.time() - start
 #    print("Сортировка", computing_time, "с")
 #    start = time.time()
@@ -326,11 +328,10 @@ def Tree_code_gravity(Y):
 #    computing_time = time.time() - start
 #    print("Работа с ячейками", computing_time, "с")
 #    start = time.time()
-    A = Interaction(Y, R_final)
+    Y[:, 7:10] = Interaction(Y, R_final)
 #    computing_time = time.time() - start
 #    print("Рассчет взаимодействия", computing_time, "с")
-    Y[:, 0:3] += Y[:, 3:6] * time_step + A[:, 0:4] * m.pow(time_step, 2) / 2
-    Y[:, 3:6] += A[:, 0:4] * time_step
+    Y[:, 3:6] += Y[:, 7:10] * time_step / 2
     return Y
 #_____________________________________________________________________________
 # Функция для "скирншота" положения всех частиц
@@ -362,21 +363,21 @@ X = birth_test()
 
 start = time.time()
 for q in range(Steps):
-    X1 = Tree_code_gravity(X)
+    X = Tree_code_gravity(X)
 computing_time = time.time() - start
 print("Полное время вычислений", computing_time, "с")
-#print(X)
+print(X)
 
-#
 #start = time.time()
 #for q in range(Steps):
 #    X = N_body_direct(X)
 ##    if l in [50, 100, 150, 200, 250, 300, 350, 400, 450]:
 ##        screenshot(X, str(l))
-##    print(l)ъ
+##    print(l)
 #computing_time = time.time() - start
 #print("Полное время вычислений", computing_time, "с")
 #Name = "Итоговое положение.png"
 #screenshot(X, Name)
 #===========================================================================
 # ^ Область с исполняемым кодом ^
+
