@@ -14,7 +14,7 @@ import numpy as np
 #import statistics as stat
 #import matplotlib as mpl
 import matplotlib.pyplot as plt
-#from mpl_toolkits.mplot3d import Axes3D as p3
+from mpl_toolkits.mplot3d import Axes3D as p3
 #from matplotlib import animation
 #===========================================================================
 # ^ Подключаемые пакеты ^
@@ -22,38 +22,38 @@ import matplotlib.pyplot as plt
 #===========================================================================
 # Средняя масса наблюдаемых объектов и их пекулярная скорость
 #M_avg = 1.98892 * pow(10, 41) #кг
-#V_avg = 4 * pow(10, 5) / np.sqrt(3) #м/с
+#V_avg = 0 #4 * pow(10, 5) / np.sqrt(3) #м/с
 M_avg = pow(10, 11) #масс Солнц
 V_avg = 0 #1.3 * pow(10, -2) / np.sqrt(3) #кпк/(10^12 c)
 
 # Минимальный размер ячейки по одной оси координат
 #Distance = 2 * 3.08567758 * pow(10, 22) #м
-Distance = 5 * pow(10, 3) #кпк
+Distance = 5 * m.pow(10, 3) #кпк
 
 # Временной интервал
 #time_step = pow(10, 13) #с
-time_step = 10 #10^12 с
+time_step = 100 #10^12 с
 
 # Гравитационная постоянная
-#G = 6.67408313 * pow(10, -11) #м^3/(кг*с^2)
-G = 4.51811511 * pow(10, -15) #кпк^3/(М_(Солнца)* (10^12 с)^2)
+#G = 6.67408313 * m.pow(10, -11) #м^3/(кг*с^2)
+G = 4.51811511 * m.pow(10, -15) #кпк^3/(М_(Солнца)* (10^12 с)^2)
 #===========================================================================
 # ^ Константы ^
 # v Параметры системы v
 #===========================================================================
 # Задаем первоначальный размер системы в единицах "Distance"
 # для функции parameters_test
-i_test = 7
-j_test = 7
-k_test = 7
+i_test = 2
+j_test = 2
+k_test = 2
 
 # Количество ячеек по одной оси координат (для tree codes)
 # ОБЯЗАТЕЛЬНО должно быть в виде 2^(целое положительное число)
-n = 8
+n = 16
 # Количество частиц
-N = 1000
+N = 10000
 # Число шагов
-Steps = 1
+Steps = 500
 #===========================================================================
 # ^ Параметры системы ^
 # v Используемые функции v
@@ -61,14 +61,14 @@ Steps = 1
 # Подфункция, позволяющая сгенерировать определенные
 # параметры для тела
 def parameters_test(h, p, l):
-    x = Distance + Distance * h
-    y = Distance + Distance * p
-    z = Distance + Distance * l
+    x = Distance * (1 / 2 + h / 1)
+    y = Distance * (1 / 2 + p / 1)
+    z = Distance * (1 / 2 + l / 1)
 #       Распределение скоростей и масс считаем нормальным
     Vx = 0
     Vy = 0
     Vz = 0
-    mass = abs(r.normalvariate(M_avg, 0.25*M_avg))
+    mass = abs(M_avg)
     Sum = np.array([x, y, z, Vx, Vy, Vz, mass, 0, 0, 0, 0])
     return Sum
 #_____________________________________________________________________________
@@ -76,7 +76,7 @@ def parameters_test(h, p, l):
 def randomize_parameters():
     x = r.random() * n * Distance
     y = r.random() * n * Distance
-    z = r.random()*n*Distance
+    z = r.random() * n * Distance
 #   Распределение скоростей и масс считаем нормальным
 #   (пока что квадратичное отклонение выбрано наугад)
     Vx = r.normalvariate(0, 4) * V_avg
@@ -90,67 +90,70 @@ def randomize_parameters():
 def birth_test():
 #   Сначала создаем массив нулей, а затем заполняем его;
 #   тела находятся по первому индексу, параметры - по второму
-    Test_particles = np.zeros((i_test * j_test * k_test, 11))
+    test_particles = np.zeros((i_test * j_test * k_test, 11))
     Num = 0
     for l in range(k_test):
         for p in range(j_test):
             for h in range(i_test):
-                Test_particles[Num] = parameters_test(h, p, l)
+                test_particles[Num] = parameters_test(h, p, l)
                 Num += 1
-    return Test_particles
+    return test_particles
 #_____________________________________________________________________________
 #   Функция, создающая "body_count" тел
 def birth_random(body_count):
 #   Сначала создаем массив нулей, а затем заполняем его;
 #   тела находятся по первому индексу, параметры - по второму
-    Random_particles = np.zeros((body_count, 11))
+    random_particles = np.zeros((body_count, 11))
     for l in range(body_count):
-        Random_particles[l] = randomize_parameters()
-    return Random_particles
+        random_particles[l] = randomize_parameters()
+    return random_particles
 #_____________________________________________________________________________
 # Функция, которая выдает растояние между частицам 1 и 2
-def Part_distance(Particle_1, Particle_2, Number_1, Nubmer_2):
+def part_distance(Particle_1, Particle_2, Number_1, Nubmer_2):
     delta_x = Particle_1[Number_1, 0] - Particle_2[Nubmer_2, 0]
     delta_y = Particle_1[Number_1, 1] - Particle_2[Nubmer_2, 1]
     delta_z = Particle_1[Number_1, 2] - Particle_2[Nubmer_2, 2]
-    return m.sqrt(m.pow(delta_x, 2) + m.pow(delta_y, 2) + m.pow(delta_z, 2))
+    return m.sqrt(delta_x * delta_x     \
+                  + delta_y * delta_y   \
+                  + delta_z * delta_z)
 #_____________________________________________________________________________
 # Ускорение по Ньютону
-def G_force_Newton(Particles, l, h):
+def g_force_Newton(Particles, l, h):
     a = 0
     for p in range(N):
         if not p == l:
             a = a + Particles[p, 6] * (Particles[l, h] - Particles[p, h]) \
-                / m.pow(Part_distance(Particles, Particles, l, p), 3)
+                / m.pow(part_distance(Particles, Particles, l, p), 3)
     a = -G * a
     return a
 #_____________________________________________________________________________
 # Ньютоновская гравитация, прямой метод
 def N_body_direct(X0):
-    V = np.zeros((np.size(X0, 0), 8))
-    A = np.zeros((np.size(X0, 0), 8))
+    X0[:, 3:6] += X0[:, 7:10] * time_step / 2
+    X0[:, 0:3] += X0[:, 3:6] * time_step
+    A = np.zeros((np.size(X0, 0), 3))
     a = 0
     for l in range(N):
         for h in range(3):
-            a = G_force_Newton(X0, l, h)
-            V[l, h] = X0[l, h+3] + a*time_step / 2
-            A[(l, h+3)] = a
-    X0 += (V+A) * time_step
+            a = g_force_Newton(X0, l, h)
+            A[(l, h)] = a
+    X0[:, 7:10] = A
+    X0[:, 3:6] += X0[:, 7:10] * time_step / 2
     return X0
 #_____________________________________________________________________________
 #   Распределение X_size частиц по ячейкам со стороной Distance
 #   с последующей сортировкой по номерам ячеек (3.04.18)
-def Distribution(X0, X_size):
+def distribution(X0, X_size):
     for N_local in range(X_size):
         n_x = int(m.floor(X0[N_local, 0] / Distance))
         n_y = int(m.floor(X0[N_local, 1] / Distance))
         n_z = int(m.floor(X0[N_local, 2] / Distance))
         X0[N_local, 10] = n_x * n * n + n_y * n + n_z
-    return X0[X0[:, 7].argsort(kind='mergesort')]
+    return X0[X0[:, 10].argsort(kind='mergesort')]
 #_____________________________________________________________________________
 # Функция, вычисляющая параметры самых малых ячеек из параметров
 # находящихся внутри частиц (3.04.18)
-def Particles_to_cell(Y, Y_size, order_n):
+def particles_to_cell(Y, Y_size, order_n):
     n_total = int(m.pow(n, 3))
     R_local = np.zeros([n_total, 15])
     part_num = 0
@@ -175,7 +178,7 @@ def Particles_to_cell(Y, Y_size, order_n):
 #_____________________________________________________________________________
 # Функция, вычисляющая параметры ячеек за счет
 # находящихся внутри ячеек с меньшим порядком (5.04.18)
-def Cells_to_cell(R_final, order_n):
+def cells_to_cell(R_final, order_n):
     n_linear = int(m.pow(2, order_n))
     n_total = int(m.pow(n_linear, 3))
     R_local = np.zeros([n_total, 15])
@@ -186,13 +189,13 @@ def Cells_to_cell(R_final, order_n):
         cell_z = cell_num % n_linear
         cell_num_0 = int(cell_x * n_linear * n_linear * 8 \
                          + cell_y * n_linear * 4 + cell_z * 2)
-        cell_num_2 = cell_num_0 + n_linear * 2
-        cell_num_4 = cell_num_0 + int(m.pow(n_linear * 2, 2))
-        cell_num_6 = cell_num_4 + n_linear * 2
-        Numbers = [cell_num_0, cell_num_0 + 1,  \
-                   cell_num_2, cell_num_2 + 1,  \
-                   cell_num_4, cell_num_4 + 1,  \
-                   cell_num_6, cell_num_6 + 1]
+        Numbers = [cell_num_0, cell_num_0 + 1,                              \
+                   cell_num_0 + n_linear * 2,                               \
+                   cell_num_0 + n_linear * 2 + 1,                           \
+                   cell_num_0 + int(m.pow(n_linear * 2, 2)),                \
+                   cell_num_0 + int(m.pow(n_linear * 2, 2)) + 1,            \
+                   cell_num_0 + int(m.pow(n_linear * 2, 2)) + n_linear * 2, \
+                   cell_num_0 + int(m.pow(n_linear * 2, 2)) + n_linear * 2 + 1]
         for u in range(8):
             R[0:3] += R_final[int(Numbers[u]), 0:3] \
                     * R_final[int(Numbers[u]), 6]
@@ -208,127 +211,114 @@ def Cells_to_cell(R_final, order_n):
 # полученное за счет гравитационного мультипольного взаимодействия с
 # частицами в ячейке с номером cell_num.
 #(Для использования в методе  Tree code)
-def Multipole_Newton(Particles, Mass_center, Part_num, cell_num, Acceleration):
-    r_3 = m.pow(Part_distance(Particles, Mass_center, Part_num, cell_num), 3)
-    Acceleration[Part_num, 0] += G * Mass_center[cell_num, 6] \
+def int_cell_to_particle(Particles, Mass_center, Part_num, cell_num):
+    r_3 = m.pow(part_distance(Particles, Mass_center, Part_num, cell_num), 3)
+    a_x = Mass_center[cell_num, 6] \
                 * (Mass_center[cell_num, 0] - Particles[Part_num, 0]) / r_3
-    Acceleration[Part_num, 1] += G * Mass_center[cell_num, 6] \
+    a_y = Mass_center[cell_num, 6] \
                 * (Mass_center[cell_num, 1] - Particles[Part_num, 1]) / r_3
-    Acceleration[Part_num, 2] += G * Mass_center[cell_num, 6] \
+    a_z = Mass_center[cell_num, 6] \
                 * (Mass_center[cell_num, 2] - Particles[Part_num, 2]) / r_3
-    return Acceleration
+    return np.array([a_x, a_y, a_z])
 #_____________________________________________________________________________
 # Функция, рассчитывающая ускорение частицы под номером Part_num,
 # полученное за счет гравитационного взаимодействия с частицами
 # в ячейке с номером cell_num. (Для использования в методе  Tree code)
-# (3.04.18)
-def Direct_Newton(Particles, Part_num, cell_num, Mass_center, Acceleration):
+# (9.04.18)
+def int_particles_to_particle(Particles, Part_num, Mass_center, cell_num):
     a_x = 0
     a_y = 0
     a_z = 0
     for num in range(int(Mass_center[cell_num, 4]), \
                      int(Mass_center[cell_num, 5])):
         if not num == Part_num:
-            r_3 = m.pow(Part_distance(Particles, Particles, Part_num, num), 3)
+            r_3 = m.pow(part_distance(Particles, Particles, \
+                              Part_num, num), 3)
             a_x += Particles[num, 6] \
-                * (Particles[num, 0] - Particles[Part_num, 0]) / r_3
+            * (Particles[num, 0] - Particles[Part_num, 0]) / r_3
             a_y += Particles[num, 6] \
-                * (Particles[num, 1] - Particles[Part_num, 1]) / r_3
+            * (Particles[num, 1] - Particles[Part_num, 1]) / r_3
             a_z += Particles[num, 6] \
-                * (Particles[num, 2] - Particles[Part_num, 2]) / r_3
-    Acceleration[Part_num, 0] += G * a_x
-    Acceleration[Part_num, 1] += G * a_y
-    Acceleration[Part_num, 2] += G * a_z
-    return Acceleration
+            * (Particles[num, 2] - Particles[Part_num, 2]) / r_3
+    return np.array([a_x, a_y, a_z])
 #_____________________________________________________________________________
 # Функция, определяющая тип взаимодействия (частица-частица,
 # мультиполь-частица), а так же раскладывающая большой куб
 # на кубы меньшего размера, если удовлетворяется условие
 # раскрытия ячейки (3.04.18)
 #ПРОВЕРИТЬ НА ОШИБКИ
-def Calculate_cell(Particles, Mass_center,  \
+def calculate_cell(Particles, Mass_center,  \
                    Part_num, order_count,   \
-                   Acceleration, L, cell_num):
+                   L, cell_num):
+    A = np.array([0, 0, 0])
     if not Mass_center[cell_num, 6] == 0:
-        if Part_distance(Particles, Mass_center,                    \
-                         Part_num, cell_num) > L:
-            Acceleration = Multipole_Newton(Particles, Mass_center, \
-                                                Part_num, cell_num, \
-                                                Acceleration)
+        if part_distance(Particles, Mass_center, Part_num, cell_num) > L:
+            A = int_cell_to_particle(Particles, Mass_center,    \
+                                     Part_num, cell_num)
         else:
             if Mass_center[cell_num, 8] == 0:
-                Acceleration = Direct_Newton(Particles, Part_num,   \
-                                             cell_num, Mass_center,  \
-                                             Acceleration)
+                A = int_particles_to_particle(Particles, Part_num,  \
+                                              Mass_center, cell_num)
             else:
-                Calculate_cube(Particles, Mass_center,  \
-                               Part_num, order_count,   \
-                                Acceleration, cell_num)
-    return Acceleration
+                A = calculate_cube(Particles, Mass_center, Part_num,\
+                                   order_count, cell_num)
+    return A
 #_____________________________________________________________________________
 # Функция, представляющая один большой куб как 8 кубов меньшего размера
 #ПРОВЕРИТЬ НА ОШИБКИ (5.04.18)
-def Calculate_cube(Particles, Mass_center,  \
+def calculate_cube(Particles, Mass_center,  \
                      Part_num, order_count, \
-                     Acceleration, cell_num):
+                     cell_num):
     n_linear = int(m.pow(2, Mass_center[cell_num, 3]))
     L = m.sqrt(3) * Distance * n / (2 * n_linear)
     order_count += m.pow(n_linear, 3)
-    Acceleration = Calculate_cell(Particles, Mass_center, Part_num, \
-                                  order_count, Acceleration, L,     \
+    A = np.zeros([8, 3])
+    A[0] = calculate_cell(Particles, Mass_center, Part_num, order_count, L, \
                                   int(order_count + Mass_center[cell_num, 7]))
-    Acceleration = Calculate_cell(Particles, Mass_center, Part_num, \
-                                  order_count, Acceleration, L,     \
+    A[1] = calculate_cell(Particles, Mass_center, Part_num, order_count, L, \
                                   int(order_count + Mass_center[cell_num, 8]))
-    Acceleration = Calculate_cell(Particles, Mass_center, Part_num, \
-                                  order_count, Acceleration, L,     \
+    A[2] = calculate_cell(Particles, Mass_center, Part_num, order_count, L, \
                                   int(order_count + Mass_center[cell_num, 9]))
-    Acceleration = Calculate_cell(Particles, Mass_center, Part_num, \
-                                  order_count, Acceleration, L,     \
+    A[3] = calculate_cell(Particles, Mass_center, Part_num, order_count, L, \
                                   int(order_count + Mass_center[cell_num, 10]))
-    Acceleration = Calculate_cell(Particles, Mass_center, Part_num, \
-                                  order_count, Acceleration, L,     \
+    A[4] = calculate_cell(Particles, Mass_center, Part_num, order_count, L, \
                                   int(order_count + Mass_center[cell_num, 11]))
-    Acceleration = Calculate_cell(Particles, Mass_center, Part_num, \
-                                  order_count, Acceleration, L,     \
+    A[5] = calculate_cell(Particles, Mass_center, Part_num, order_count, L, \
                                   int(order_count + Mass_center[cell_num, 12]))
-    Acceleration = Calculate_cell(Particles, Mass_center, Part_num, \
-                                  order_count, Acceleration, L,     \
+    A[6] = calculate_cell(Particles, Mass_center, Part_num, order_count, L, \
                                   int(order_count + Mass_center[cell_num, 13]))
-    Acceleration = Calculate_cell(Particles, Mass_center, Part_num, \
-                                  order_count, Acceleration, L,     \
+    A[7] = calculate_cell(Particles, Mass_center, Part_num, order_count, L, \
                                   int(order_count + Mass_center[cell_num, 14]))
-    return Acceleration
+    return A.sum(axis=0)
 #_____________________________________________________________________________
 # Функция, подщитывающая ускорение для каждой частицы (3.04.18)
-def Interaction(Particles, Mass_center):
+def interaction(Particles, Mass_center):
     Number_of_particles = np.size(Particles, 0)
-    Acceleration = np.zeros([Number_of_particles, 3])
     for Part_num in range(Number_of_particles):
-        Acceleration = Calculate_cube(Particles, Mass_center, \
-                     Part_num, 0, Acceleration, 0)
-    return Acceleration
+        Particles[Part_num, 7:10] = G * calculate_cube(Particles, Mass_center,\
+                     Part_num, 0, 0)
+    return Particles
 #_____________________________________________________________________________
 # Функция, позволяющая получить новые параметры частиц
 # из матрицы Y с помощью метода Tree code
-def Tree_code_gravity(Y):
+def tree_code_gravity(Y):
     order_n = int(m.log2(n))
     Y_size = np.size(Y, 0)
 #    start = time.time()
-    Y = Distribution(Y, Y_size)
-    Y[:, 3:6] += Y[:, 7:10] * time_step / 2
-    Y[:, 0:3] += Y[:, 3:6] * time_step
+    Y = distribution(Y, Y_size)
 #    computing_time = time.time() - start
 #    print("Сортировка", computing_time, "с")
+    Y[:, 3:6] += Y[:, 7:10] * time_step / 2
+    Y[:, 0:3] += Y[:, 3:6] * time_step
 #    start = time.time()
-    R_final = Particles_to_cell(Y, Y_size, order_n)
+    R_final = particles_to_cell(Y, Y_size, order_n)
     while order_n > 0:
         order_n += -1
-        R_final = Cells_to_cell(R_final, order_n)
+        R_final = cells_to_cell(R_final, order_n)
 #    computing_time = time.time() - start
 #    print("Работа с ячейками", computing_time, "с")
 #    start = time.time()
-    Y[:, 7:10] = Interaction(Y, R_final)
+    Y = interaction(Y, R_final)
 #    computing_time = time.time() - start
 #    print("Рассчет взаимодействия", computing_time, "с")
     Y[:, 3:6] += Y[:, 7:10] * time_step / 2
@@ -341,7 +331,7 @@ def screenshot(System_parameters, Name):
     x = System_parameters[:, 0]
     y = System_parameters[:, 1]
     z = System_parameters[:, 2]
-    ax.scatter(x, y, z, color='red', s=1)
+    ax.scatter(x, y, z, color='red', s=0.02)
     ax.autoscale(False)
 #    Для осей в единицах СИ
 #    ax.set_xlabel('x, м')
@@ -356,28 +346,18 @@ def screenshot(System_parameters, Name):
 # ^ Используемые функции ^
 # v Область с исполняемым кодом v
 #===========================================================================
-X = birth_test()
-#X = birth_random(N)
-#Name = "Начальное положение.png"
-#screenshot(X, Name)
-
+#X = birth_test()
+X = birth_random(N)
+Name = "Начальное положение.png"
+screenshot(X, Name)
 start = time.time()
 for q in range(Steps):
-    X = Tree_code_gravity(X)
+    X = tree_code_gravity(X)
+#    X1 = N_body_direct(X)
+#    if q in [50, 100, 150, 200, 250, 300, 350, 400, 450]:
+#        screenshot(X, 'Шаг' + str(q))
+#print(X)
 computing_time = time.time() - start
 print("Полное время вычислений", computing_time, "с")
-print(X)
-
-#start = time.time()
-#for q in range(Steps):
-#    X = N_body_direct(X)
-##    if l in [50, 100, 150, 200, 250, 300, 350, 400, 450]:
-##        screenshot(X, str(l))
-##    print(l)
-#computing_time = time.time() - start
-#print("Полное время вычислений", computing_time, "с")
-#Name = "Итоговое положение.png"
-#screenshot(X, Name)
-#===========================================================================
-# ^ Область с исполняемым кодом ^
-
+Name = "Итоговое положение.png"
+screenshot(X, Name)
