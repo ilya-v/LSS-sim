@@ -14,7 +14,7 @@ import numpy as np
 #import statistics as stat
 #import matplotlib as mpl
 import matplotlib.pyplot as plt
-#from mpl_toolkits.mplot3d import Axes3D as p3
+import mpl_toolkits.mplot3d
 #from matplotlib import animation
 #===========================================================================
 # ^ Подключаемые пакеты ^
@@ -48,15 +48,15 @@ G = 4.51811511 * m.pow(10, -15) #кпк^3/(М_(Солнца)* (10^12 с)^2)
 #===========================================================================
 # Задаем первоначальный размер системы в единицах "Distance"
 # для функции parameters_test
-i_test = 15
-j_test = 15
-k_test = 15
+i_test = 3
+j_test = 3
+k_test = 3
 
 # Количество ячеек по одной оси координат (для tree codes)
 # ОБЯЗАТЕЛЬНО должно быть в виде 2^(целое положительное число)
-n = 8
+n = 4
 # Количество частиц
-N = 3375
+N = 4
 # Число шагов
 Steps = 1
 #===========================================================================
@@ -66,9 +66,9 @@ Steps = 1
 # Подфункция, позволяющая сгенерировать определенные
 # параметры для тела
 def parameters_test(h, p, l):
-    x = Distance * (1 + h * 2) / 15
-    y = Distance * (1 + p * 2) / 15
-    z = Distance * (1 + l * 2) / 15
+    x = Distance * (0 + h * 2) / 1
+    y = Distance * (0 + p * 2) / 1
+    z = Distance * (0 + l * 2) / 1
 #       Распределение скоростей и масс считаем нормальным
     Vx = 0
     Vy = 0
@@ -153,6 +153,12 @@ def distribution(X0, X_size):
         n_x = int(m.floor(X0[N_local, 0] / Distance))
         n_y = int(m.floor(X0[N_local, 1] / Distance))
         n_z = int(m.floor(X0[N_local, 2] / Distance))
+        if n_x == n:
+            n_x += -1
+        if n_y == n:
+            n_y += -1
+        if n_z == n:
+            n_z += -1
         X0[N_local, 10] = n_x * n * n + n_y * n + n_z
     return X0[X0[:, 10].argsort(kind='mergesort')]
 #_____________________________________________________________________________
@@ -174,13 +180,13 @@ def particles_to_cell(Y, Y_size, order_n):
                     break
         R[4] = part_count
         R[5] = part_num
-        cell_x = cell_num // (n * n)
-        R[6] = Distance * (0.5 + cell_x)
-        R[7] = Distance * (0.5 + ((cell_num // n) - cell_x * n))
-        R[8] = Distance * (0.5 + (cell_num % n))
         part_count = part_num
         if not R[3] == 0:
             R[0:3] = R[0:3] / R[3]
+            cell_x = cell_num // (n * n)
+            R[6] = Distance * (0.5 + cell_x)
+            R[7] = Distance * (0.5 + ((cell_num // n) - cell_x * n))
+            R[8] = Distance * (0.5 + (cell_num % n))
         R_local[cell_num] = [R[0], R[1], R[2], order_n, R[4], R[5], R[3],   \
                 0, 0, 0, 0, 0, 0, 0, 0, R[6], R[7], R[8]]
     return R_local
@@ -196,10 +202,7 @@ def cells_to_cell(R_final, order_n):
         R = np.zeros([7])
         cell_x = cell_num // (order_n * order_n)
         cell_y = (cell_num // order_n) - cell_x * order_n
-        cell_z = cell_num % order_n
-        R[4] = cell_length * (0.5 + cell_x)
-        R[5] = cell_length * (0.5 + cell_y)
-        R[6] = cell_length * (0.5 + cell_z)
+        cell_z = cell_num % order_n        
         cell_num_0 = 2 * int(cell_x * n_linear * n_linear \
                          + cell_y * n_linear + cell_z)
         Numbers = [cell_num_0, cell_num_0 + 1,                      \
@@ -215,17 +218,22 @@ def cells_to_cell(R_final, order_n):
             R[3] += R_final[int(Numbers[u]), 6]
         if not R[3] == 0:
             R[0:3] = R[0:3] / R[3]
+            R[4] = cell_length * (0.5 + cell_x)
+            R[5] = cell_length * (0.5 + cell_y)
+            R[6] = cell_length * (0.5 + cell_z)
         R_local[cell_num] = [R[0], R[1], R[2], order_n, 0, 0, R[3], \
                 Numbers[0], Numbers[1], Numbers[2], Numbers[3],     \
                 Numbers[4], Numbers[5], Numbers[6], Numbers[7],     \
                 R[4], R[5], R[6]]
+    R_local[:, 7:15] += n_total
+    R_final[:, 7:15] += n_total
     return np.vstack((R_local, R_final))
 #_____________________________________________________________________________
 # Функция, рассчитывающая ускорение частицы под номером Part_num,
 # полученное за счет гравитационного мультипольного взаимодействия с
 # частицами в ячейке с номером cell_num.
 #(Для использования в методе  Tree code)
-def int_cell_to_particle(Particles, Mass_center, Part_num, cell_num):
+def int_C_to_P(Particles, Mass_center, Part_num, cell_num):
     r_3 = m.pow(part_distance(Particles, Mass_center, Part_num, cell_num), 3)
     a_x = Mass_center[cell_num, 6] \
                 * (Mass_center[cell_num, 0] - Particles[Part_num, 0]) / r_3
@@ -239,7 +247,7 @@ def int_cell_to_particle(Particles, Mass_center, Part_num, cell_num):
 # полученное за счет гравитационного взаимодействия с частицами
 # в ячейке с номером cell_num. (Для использования в методе  Tree code)
 # (9.04.18)
-def int_particles_to_particle(Particles, Part_num, Mass_center, cell_num):
+def int_Ps_to_P(Particles, Part_num, Mass_center, cell_num):
     a_x = 0
     a_y = 0
     a_z = 0
@@ -256,77 +264,119 @@ def int_particles_to_particle(Particles, Part_num, Mass_center, cell_num):
             * (Particles[num, 2] - Particles[Part_num, 2]) / r_3
     return np.array([a_x, a_y, a_z])
 #_____________________________________________________________________________
-# Функция, определяющая тип взаимодействия (частица-частица,
-# мультиполь-частица), а так же раскладывающая большой куб
-# на кубы меньшего размера, если удовлетворяется условие
-# раскрытия ячейки (13.04.18)
-#ПРОВЕРИТЬ НА ОШИБКИ
-def calculate_cell(Particles, Mass_center,  \
-                   min_cell, order_count,   \
-                   L, cell_num):
-    global n1, n2
-    A = np.zeros([n2 - n1, 3])
-    if not Mass_center[cell_num, 6] == 0:
-        sqr_dist = (Mass_center[min_cell, 15] - Mass_center[cell_num, 15])  \
-        * (Mass_center[min_cell, 15] - Mass_center[cell_num, 15])           \
-        + m.pow(Mass_center[min_cell, 16] - Mass_center[cell_num, 16], 2)   \
-        + m.pow(Mass_center[min_cell, 17] - Mass_center[cell_num, 17], 2)
-        if sqr_dist >= (L * L):
-            for Part_num in range(n1, n2):
-                A[Part_num - n1] = int_cell_to_particle(Particles,  \
-                 Mass_center, Part_num, cell_num)
-        else:
-            if Mass_center[cell_num, 3] == n:
-                for Part_num in range(n1, n2):
-                    A[Part_num - n1] = int_particles_to_particle(Particles, \
-                     Part_num, Mass_center, cell_num)
-            else:
-                A = calculate_cube(Particles, Mass_center, min_cell,\
-                                   order_count, cell_num)
-    return A
+def branch_to_leafes(Particles, Mass_center, current_cell, cell_num):
+    if not Mass_center[current_cell, 3] == n:
+        if not Mass_center[int(Mass_center[current_cell, 7]), 6] == 0:
+            Particles = branch_to_leafes(Particles, Mass_center,   \
+                             int(Mass_center[current_cell, 7]), cell_num)
+        if not Mass_center[int(Mass_center[current_cell, 8]), 6] == 0:
+            Particles = branch_to_leafes(Particles, Mass_center,   \
+                             int(Mass_center[current_cell, 8]), cell_num)
+        if not Mass_center[int(Mass_center[current_cell, 9]), 6] == 0:
+            Particles = branch_to_leafes(Particles, Mass_center,   \
+                             int(Mass_center[current_cell, 9]), cell_num)
+        if not Mass_center[int(Mass_center[current_cell, 10]), 6] == 0:
+            Particles = branch_to_leafes(Particles, Mass_center,   \
+                             int(Mass_center[current_cell, 10]), cell_num)
+        if not Mass_center[int(Mass_center[current_cell, 11]), 6] == 0:
+            Particles = branch_to_leafes(Particles, Mass_center,   \
+                             int(Mass_center[current_cell, 11]), cell_num)
+        if not Mass_center[int(Mass_center[current_cell, 12]), 6] == 0:
+            Particles = branch_to_leafes(Particles, Mass_center,   \
+                             int(Mass_center[current_cell, 12]), cell_num)
+        if not Mass_center[int(Mass_center[current_cell, 13]), 6] == 0:
+            Particles = branch_to_leafes(Particles, Mass_center,   \
+                             int(Mass_center[current_cell, 13]), cell_num)
+        if not Mass_center[int(Mass_center[current_cell, 14]), 6] == 0:
+            Particles = branch_to_leafes(Particles, Mass_center,   \
+                             int(Mass_center[current_cell, 14]), cell_num)
+    else:
+        n1 = int(Mass_center[current_cell, 4])
+        n2 = int(Mass_center[current_cell, 5])
+        for Part_num in range(n1, n2):
+            Particles[Part_num, 7:10] += int_C_to_P(Particles,  \
+                                             Mass_center, Part_num, cell_num)
+    return Particles
 #_____________________________________________________________________________
-# Функция, представляющая один большой куб как 8 кубов меньшего размера
-#ПРОВЕРИТЬ НА ОШИБКИ (13.04.18)
-def calculate_cube(Particles, Mass_center,  \
-                     min_cell, order_count, \
-                     cell_num):
-    n_linear = int(Mass_center[cell_num, 3])
-    L = Distance * n / n_linear
-    order_count += m.pow(n_linear, 3)
-    A = np.zeros([8, n2 - n1, 3])
-    A[0] = calculate_cell(Particles, Mass_center, min_cell, order_count,\
-                     L, int(order_count + Mass_center[cell_num, 7]))
-    A[1] = calculate_cell(Particles, Mass_center, min_cell, order_count,\
-                     L, int(order_count + Mass_center[cell_num, 8]))
-    A[2] = calculate_cell(Particles, Mass_center, min_cell, order_count,    \
-                     L, int(order_count + Mass_center[cell_num, 9]))
-    A[3] = calculate_cell(Particles, Mass_center, min_cell, order_count,\
-                     L, int(order_count + Mass_center[cell_num, 10]))
-    A[4] = calculate_cell(Particles, Mass_center, min_cell, order_count,\
-                     L, int(order_count + Mass_center[cell_num, 11]))
-    A[5] = calculate_cell(Particles, Mass_center, min_cell, order_count,\
-                     L, int(order_count + Mass_center[cell_num, 12]))
-    A[6] = calculate_cell(Particles, Mass_center, min_cell, order_count,\
-                     L, int(order_count + Mass_center[cell_num, 13]))
-    A[7] = calculate_cell(Particles, Mass_center, min_cell, order_count,\
-                     L, int(order_count + Mass_center[cell_num, 14]))
-    return A.sum(axis=0)
+def tree_branch(Particles, Mass_center, current_cell, cell_num, L):
+    sqr_dist = m.pow(Mass_center[current_cell, 15]\
+                     - Mass_center[cell_num, 15], 2)\
+        + m.pow(Mass_center[current_cell, 16] - Mass_center[cell_num, 16], 2)     \
+        + m.pow(Mass_center[current_cell, 17] - Mass_center[cell_num, 17], 2)
+    if sqr_dist >= L:
+        Particles = branch_to_leafes(Particles, Mass_center,    \
+                                     current_cell, cell_num)
+    else:
+        if Mass_center[cell_num, 3] == n:
+            n1 = int(Mass_center[current_cell, 4])
+            n2 = int(Mass_center[current_cell, 5])
+            for Part_num in range(n1, n2):
+                Particles[Part_num, 7:10] += int_Ps_to_P(Particles, \
+                                             Part_num, Mass_center, cell_num)
+        else:
+            Particles = main_tree(Particles, Mass_center,  \
+                                                     current_cell, cell_num)
+    return Particles
+#_____________________________________________________________________________
+def main_tree_to_branches(Particles, Mass_center, current_cell, cell_num):
+    L_2 = 4 * Distance * Distance * n * n / (Mass_center[current_cell, 3]   \
+                                         * Mass_center[current_cell, 3])
+    if not Mass_center[int(Mass_center[cell_num, 7]), 6] == 0:
+        Particles = tree_branch(Particles, Mass_center,   \
+                             current_cell, int(Mass_center[cell_num, 7]), L_2)
+    if not Mass_center[int(Mass_center[cell_num, 8]), 6] == 0:
+        Particles = tree_branch(Particles, Mass_center,   \
+                             current_cell, int(Mass_center[cell_num, 8]), L_2)
+    if not Mass_center[int(Mass_center[cell_num, 9]), 6] == 0:
+        Particles = tree_branch(Particles, Mass_center,   \
+                             current_cell, int(Mass_center[cell_num, 9]), L_2)
+    if not Mass_center[int(Mass_center[cell_num, 10]), 6] == 0:
+        Particles = tree_branch(Particles, Mass_center,   \
+                             current_cell, int(Mass_center[cell_num, 10]), L_2)
+    if not Mass_center[int(Mass_center[cell_num, 11]), 6] == 0:
+        Particles = tree_branch(Particles, Mass_center,   \
+                             current_cell, int(Mass_center[cell_num, 11]), L_2)
+    if not Mass_center[int(Mass_center[cell_num, 12]), 6] == 0:
+        Particles = tree_branch(Particles, Mass_center,   \
+                             current_cell, int(Mass_center[cell_num, 12]), L_2)
+    if not Mass_center[int(Mass_center[cell_num, 13]), 6] == 0:
+        Particles = tree_branch(Particles, Mass_center,   \
+                             current_cell, int(Mass_center[cell_num, 13]), L_2)
+    if not Mass_center[int(Mass_center[cell_num, 14]), 6] == 0:
+        Particles = tree_branch(Particles, Mass_center,   \
+                             current_cell, int(Mass_center[cell_num, 14]), L_2)
+    return Particles
+#_____________________________________________________________________________
+def main_tree(Particles, Mass_center, current_cell, cell_num):
+    if not Mass_center[int(Mass_center[current_cell, 7]), 6] == 0:
+        Particles = main_tree_to_branches(Particles, Mass_center,   \
+                             int(Mass_center[current_cell, 7]), cell_num)
+    if not Mass_center[int(Mass_center[current_cell, 8]), 6] == 0:
+        Particles = main_tree_to_branches(Particles, Mass_center,   \
+                             int(Mass_center[current_cell, 8]), cell_num)
+    if not Mass_center[int(Mass_center[current_cell, 9]), 6] == 0:
+        Particles = main_tree_to_branches(Particles, Mass_center,   \
+                             int(Mass_center[current_cell, 9]), cell_num)
+    if not Mass_center[int(Mass_center[current_cell, 10]), 6] == 0:
+        Particles = main_tree_to_branches(Particles, Mass_center,   \
+                             int(Mass_center[current_cell, 10]), cell_num)
+    if not Mass_center[int(Mass_center[current_cell, 11]), 6] == 0:
+        Particles = main_tree_to_branches(Particles, Mass_center,   \
+                             int(Mass_center[current_cell, 11]), cell_num)
+    if not Mass_center[int(Mass_center[current_cell, 12]), 6] == 0:
+        Particles = main_tree_to_branches(Particles, Mass_center,   \
+                             int(Mass_center[current_cell, 12]), cell_num)
+    if not Mass_center[int(Mass_center[current_cell, 13]), 6] == 0:
+        Particles = main_tree_to_branches(Particles, Mass_center,   \
+                             int(Mass_center[current_cell, 13]), cell_num)
+    if not Mass_center[int(Mass_center[current_cell, 14]), 6] == 0:
+        Particles = main_tree_to_branches(Particles, Mass_center,   \
+                             int(Mass_center[current_cell, 14]), cell_num)
+    return Particles
 #_____________________________________________________________________________
 # Функция, подщитывающая ускорение для каждой частицы (13.04.18)
 def interaction(Particles, Mass_center):
-    global n1, n2
-    cell_linear = 1
-    cell_count = 0
-    max_cell_linear = Mass_center[-1, 3] / 2
-    while cell_linear <= max_cell_linear:
-        cell_count += int(m.pow(cell_linear, 3))
-        cell_linear *= 2
-    for min_cell in range(cell_count, int(np.size(Mass_center, 0))):
-        n1 = int(Mass_center[min_cell, 4])
-        n2 = int(Mass_center[min_cell, 5])
-        if not n1 == n2:
-            Particles[n1:n2, 7:10] = calculate_cube(Particles, Mass_center, \
-                                                 min_cell, 0, 0)
+    Particles = main_tree(Particles, Mass_center, 0, 0)
     Particles[:, 7:10] *= G
     return Particles
 #_____________________________________________________________________________
@@ -373,14 +423,17 @@ def screenshot(System_parameters, Name, point_size):
 # ^ Используемые функции ^
 # v Область с исполняемым кодом v
 #===========================================================================
-n1 = 0
-n2 = 0
 name_begin = "Начальное положение.png"
 name_end = "Итоговое положение.png"
-marker_size = 0.02
+marker_size = 1 #0.02
+#_________________________________________________________
 #X = birth_test()
-X = birth_random(N)
-#screenshot(X, Name_begin, marker_size)
+#X = birth_random(N)
+#_________________________________________________________
+#np.savetxt('start config.txt', X)
+X = np.loadtxt('start config.txt', dtype='float64')
+#_________________________________________________________
+#screenshot(X, name_begin, marker_size)
 start = time.time()
 for q in range(Steps):
     X = tree_code_gravity(X)
@@ -390,6 +443,19 @@ for q in range(Steps):
 #print(X)
 computing_time = time.time() - start
 print("Время выполнения", computing_time, "с")
-#screenshot(X, Name_end)
+#screenshot(X, name_end)
+#_________________________________________________________
+x1_size = np.size(X, 0)
+x1 = np.zeros([3])
+x2 = np.zeros([3])
+for b in range(x1_size):
+    x1[0] = X[b, 3] * X[b, 6]
+    x1[1] = X[b, 4] * X[b, 6]
+    x1[2] = X[b, 5] * X[b, 6]
+    x2[0] += x1[0]
+    x2[1] += x1[1]
+    x2[2] += x1[2]
+#    print(x1)
+print(x2)
 #===========================================================================
 # ^ Область с исполняемым кодом ^
