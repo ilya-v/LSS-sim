@@ -7,6 +7,7 @@
 
 # v Подключаемые пакеты v
 # ===========================================================================
+# import importlib
 import math as m
 import time
 import random as r
@@ -18,6 +19,7 @@ from joblib import Parallel, delayed
 # import matplotlib as mpl
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+
 # from matplotlib import animation
 # ===========================================================================
 # ^ Подключаемые пакеты ^
@@ -36,7 +38,7 @@ def parameters_test(h, p, l):
     Vy = r.normalvariate(0, 4) * v_avg
     Vz = r.normalvariate(0, 4) * v_avg
     mass = abs(m_avg)
-    Sum = np.array([x, y, z, Vx, Vy, Vz, mass, 0, 0, 0, 0, 0])
+    Sum = np.array([x, y, z, Vx, Vy, Vz, mass, 0, 0, 0, 0, 0, 0, 0])
     return Sum
 
 
@@ -51,7 +53,7 @@ def randomize_parameters():
     Vy = r.normalvariate(0, 4) * v_avg
     Vz = r.normalvariate(0, 4) * v_avg
     mass = abs(r.normalvariate(m_avg, 0.5*m_avg))
-    Sum = np.array([x, y, z, Vx, Vy, Vz, mass, 0, 0, 0, 0, 0])
+    Sum = np.array([x, y, z, Vx, Vy, Vz, mass, 0, 0, 0, 0, 0, 0, 0])
     return Sum
 
 
@@ -84,7 +86,7 @@ def randomize_ellipsoid():
     Vy = r.normalvariate(0, 3) * v_avg + w_z * d_x - w_x * d_z
     Vz = r.normalvariate(0, 3) * v_avg + w_x * d_y - w_y * d_x
     mass = abs(r.normalvariate(m_avg, 0.5*m_avg))
-    Sum = np.array([x, y, z, Vx, Vy, Vz, mass, 0, 0, 0, 0, 0])
+    Sum = np.array([x, y, z, Vx, Vy, Vz, mass, 0, 0, 0, 0, 0, 0, 0])
     return Sum
 
 
@@ -92,7 +94,7 @@ def birth_test():
     # Функция, создающая i*j*k тел
     # Сначала создаем массив нулей, а затем заполняем его;
     # тела находятся по первому индексу, параметры - по второму
-    test_particles = np.zeros((i_test * j_test * k_test, 12))
+    test_particles = np.zeros((i_test * j_test * k_test, 14))
     Num = 0
     for l in range(k_test):
         for p in range(j_test):
@@ -106,7 +108,7 @@ def birth_random(body_count):
     # Функция, создающая "body_count" тел
     # Сначала создаем массив нулей, а затем заполняем его;
     # тела находятся по первому индексу, параметры - по второму
-    random_particles = np.zeros((body_count, 12))
+    random_particles = np.zeros((body_count, 14))
     for l in range(body_count):
         random_particles[l] = randomize_parameters()
     return random_particles
@@ -116,60 +118,10 @@ def birth_ellipsoid(body_count):
     # Функция, создающая "body_count" тел
     # Сначала создаем массив нулей, а затем заполняем его;
     # тела находятся по первому индексу, параметры - по второму
-    random_particles = np.zeros([body_count, 12])
+    random_particles = np.zeros([body_count, 14])
     for l in range(body_count):
         random_particles[l] = randomize_ellipsoid()
     return random_particles
-
-
-def part_distance(Particle_1, Particle_2, Number_1, Nubmer_2):
-    # Функция, которая выдает растояние между частицам 1 и 2
-    delta_x = Particle_1[Number_1, 0] - Particle_2[Nubmer_2, 0]
-    delta_y = Particle_1[Number_1, 1] - Particle_2[Nubmer_2, 1]
-    delta_z = Particle_1[Number_1, 2] - Particle_2[Nubmer_2, 2]
-    return m.sqrt(delta_x * delta_x
-                  + delta_y * delta_y
-                  + delta_z * delta_z)
-
-
-def smooth_distance(Particles, Number_1, Nubmer_2):
-    # Функция, выдающая растояние между частицам 1 и 2
-    delta_x = Particles[Number_1, 0] - Particles[Nubmer_2, 0]
-    delta_y = Particles[Number_1, 1] - Particles[Nubmer_2, 1]
-    delta_z = Particles[Number_1, 2] - Particles[Nubmer_2, 2]
-    delta_soft = m.sqrt(delta_x * delta_x + delta_y * delta_y
-                        + delta_z * delta_z + eps_smooth * eps_smooth)
-    return delta_soft  # * delta_soft * delta_soft
-
-
-def g_force_Newton(Particles, part_num, l):
-    # Ускорение по Ньютону
-    a = np.zeros([4])
-    r_1 = smooth_distance(Particles, part_num, l)
-    r_3 = r_1 * r_1 * r_1
-    a[0] = Particles[part_num, 6] \
-        * (Particles[part_num, 0] - Particles[l, 0]) / r_3
-    a[1] = Particles[part_num, 6] \
-        * (Particles[part_num, 1] - Particles[l, 1]) / r_3
-    a[2] = Particles[part_num, 6] \
-        * (Particles[part_num, 2] - Particles[l, 2]) / r_3
-    a[3] = - Particles[part_num, 6] / r_1
-    return a
-
-
-def N_body_direct(X0):
-    # Ньютоновская гравитация, метод частица-частица
-    total_part = np.size(X0, 0)
-    A = np.zeros((total_part, 4))
-    part_num = 0
-    while X0[part_num, 11] < 0:
-        for l in range(total_part):
-            if not part_num == l:
-                A[l] = g_force_Newton(X0, part_num, l)
-        part_num += 1
-    A *= G
-    X0[:, 7:11] += A
-    return X0
 
 
 def distribution(X0, X_size):
@@ -261,9 +213,9 @@ def cells_to_cell(R_final, order_n, n_max):
         d_xy = 0
         d_xz = 0
         d_yz = 0
-        D_xy = 0
-        D_xz = 0
-        D_yz = 0
+#        D_xy = 0
+#        D_xz = 0
+#        D_yz = 0
         for u in range(8):
             # Определяем параметры центра масс
             R[0:3] += R_final[Numbers[u], 0:3] \
@@ -318,252 +270,32 @@ def cells_to_cell(R_final, order_n, n_max):
     return np.vstack((R_local, R_final))
 
 
-def quadrupole(Mass_center, num, r_1, r_3, delta_x, delta_y, delta_z):
-    # Функция, расчитывающая квадрупольный вклад
-    r_5 = r_3 * r_1 * r_1
-    r_7 = r_5 * r_1 * r_1
-    DR = (Mass_center[num, 7] * delta_x * delta_y
-          + Mass_center[num, 8] * delta_x * delta_z
-          + Mass_center[num, 9] * delta_y * delta_z) * 5
-    a_x = - (Mass_center[num, 7] * delta_y + Mass_center[num, 8] * delta_z) \
-        / r_5 + DR * delta_x / r_7
-    a_y = - (Mass_center[num, 7] * delta_x + Mass_center[num, 9] * delta_z) \
-        / r_5 + DR * delta_y / r_7
-    a_z = - (Mass_center[num, 8] * delta_x + Mass_center[num, 9] * delta_y) \
-        / r_5 + DR * delta_z / r_7
-    phi = DR / (5 * r_5)
-    return np.array([a_x, a_y, a_z, - phi])
-
-
-def int_C_to_P(Particles, Mass_center, Part_num, cell_num):
-    # Функция, рассчитывающая ускорение частицы под номером Part_num,
-    # полученное за счет гравитационного мультипольного взаимодействия с
-    # частицами в ячейке с номером cell_num.
-    r_1 = part_distance(Particles, Mass_center, Part_num, cell_num)
-    r_3 = r_1 * r_1 * r_1
-    delta_x = Mass_center[cell_num, 0] - Particles[Part_num, 0]
-    delta_y = Mass_center[cell_num, 1] - Particles[Part_num, 1]
-    delta_z = Mass_center[cell_num, 2] - Particles[Part_num, 2]
-    cell_to_body = np.array([delta_x, delta_y, delta_z, 0])
-    cell_to_body[0:3] *= Mass_center[cell_num, 6] / r_3
-    cell_to_body[3] = - Mass_center[cell_num, 6] / r_1
-#    cell_to_body += quadrupole(Mass_center, cell_num, r_1, r_3,
-#                               delta_x, delta_y, delta_z)
-    return cell_to_body
-
-
-def int_Ps_to_P(Particles, Part_num, Mass_center, cell_num):
-    # Функция, рассчитывающая ускорение частицы под номером Part_num,
-    # полученное за счет гравитационного взаимодействия с частицами
-    # в ячейке с номером cell_num. (Для использования в методе  Tree code)
-    a_x = 0
-    a_y = 0
-    a_z = 0
-    phi = 0
-    n1 = int(Mass_center[cell_num, 12])
-    n2 = int(Mass_center[cell_num, 13])
-
-    if (Part_num >= n1) and (Part_num < n2):
-        for num in range(n1, n2):
-            if not num == Part_num:
-                r_1 = smooth_distance(Particles, Part_num, num)
-                r_3 = r_1 * r_1 * r_1
-                a_x += Particles[num, 6] \
-                    * (Particles[num, 0] - Particles[Part_num, 0]) / r_3
-                a_y += Particles[num, 6] \
-                    * (Particles[num, 1] - Particles[Part_num, 1]) / r_3
-                a_z += Particles[num, 6] \
-                    * (Particles[num, 2] - Particles[Part_num, 2]) / r_3
-                phi += Particles[num, 6] / r_1
-    else:
-        for num in range(n1, n2):
-            r_1 = smooth_distance(Particles, Part_num, num)
-            r_3 = r_1 * r_1 * r_1
-            a_x += Particles[num, 6] \
-                * (Particles[num, 0] - Particles[Part_num, 0]) / r_3
-            a_y += Particles[num, 6] \
-                * (Particles[num, 1] - Particles[Part_num, 1]) / r_3
-            a_z += Particles[num, 6] \
-                * (Particles[num, 2] - Particles[Part_num, 2]) / r_3
-            phi += Particles[num, 6] / r_1
-    return np.array([a_x, a_y, a_z, - phi])
-
-
-def branch_to_leafes(Mass_center, current_cell, cell_num, Numbers):
-    # Функция, рассчитывающая гравитационное воздействие на частицы в
-    # ячейке current_cell со стороны ячейки cell_num
-    if Mass_center[current_cell, 11] == n:
-        Numbers.append(current_cell)
-    else:
-        if not Mass_center[int(Mass_center[current_cell, 12]), 6] == 0:
-            Numbers = branch_to_leafes(Mass_center,
-                                       int(Mass_center[current_cell, 12]),
-                                       cell_num, Numbers)
-        if not Mass_center[int(Mass_center[current_cell, 13]), 6] == 0:
-            Numbers = branch_to_leafes(Mass_center,
-                                       int(Mass_center[current_cell, 13]),
-                                       cell_num, Numbers)
-        if not Mass_center[int(Mass_center[current_cell, 14]), 6] == 0:
-            Numbers = branch_to_leafes(Mass_center,
-                                       int(Mass_center[current_cell, 14]),
-                                       cell_num, Numbers)
-        if not Mass_center[int(Mass_center[current_cell, 15]), 6] == 0:
-            Numbers = branch_to_leafes(Mass_center,
-                                       int(Mass_center[current_cell, 15]),
-                                       cell_num, Numbers)
-        if not Mass_center[int(Mass_center[current_cell, 16]), 6] == 0:
-            Numbers = branch_to_leafes(Mass_center,
-                                       int(Mass_center[current_cell, 16]),
-                                       cell_num, Numbers)
-        if not Mass_center[int(Mass_center[current_cell, 17]), 6] == 0:
-            Numbers = branch_to_leafes(Mass_center,
-                                       int(Mass_center[current_cell, 17]),
-                                       cell_num, Numbers)
-        if not Mass_center[int(Mass_center[current_cell, 18]), 6] == 0:
-            Numbers = branch_to_leafes(Mass_center,
-                                       int(Mass_center[current_cell, 18]),
-                                       cell_num, Numbers)
-        if not Mass_center[int(Mass_center[current_cell, 19]), 6] == 0:
-            Numbers = branch_to_leafes(Mass_center,
-                                       int(Mass_center[current_cell, 19]),
-                                       cell_num, Numbers)
-    return Numbers
-
-
-def tree_branch(Particles, Mass_center, current_cell, cell_num, A):
-    # Функция, определяющая дальнейший алгоритм действий, исходя из
-    # заданного критерия раскрытия ячеек (15.04.18)
-    sqr_dist = m.pow(Mass_center[current_cell, 3]
-                     - Mass_center[cell_num, 3], 2) \
-        + m.pow(Mass_center[current_cell, 4] - Mass_center[cell_num, 4], 2) \
-        + m.pow(Mass_center[current_cell, 5] - Mass_center[cell_num, 5], 2)
-    if sqr_dist > Mass_center[cell_num, 10]:
-        Numbers_of_cells = []
-        Numbers_of_cells = branch_to_leafes(Mass_center,
-                                            current_cell, cell_num,
-                                            Numbers_of_cells)
-        Numbers_of_particles = []
-        for l in Numbers_of_cells:
-            for k in range(int(Mass_center[l, 12]),
-                           int(Mass_center[l, 13])):
-                Numbers_of_particles.append(k)
-        for p in Numbers_of_particles:
-            A[p] += int_C_to_P(Particles, Mass_center, p, cell_num)
-    else:
-        if Mass_center[cell_num, 11] == n:
-            n1 = int(Mass_center[current_cell, 12])
-            n2 = int(Mass_center[current_cell, 13])
-            for Part_num in range(n1, n2):
-                A[Part_num] += int_Ps_to_P(Particles, Part_num,
-                                           Mass_center, cell_num)
-        else:
-            A = main_tree_branch(Particles, Mass_center,
-                                 current_cell, cell_num, A)
-    return A
-
-
-def sub_tree_branch(Particles, Mass_center, current_cell, cell_num, A):
-    # Функция, которая задает ячейки, воздействующие на частицы (15.04.18)
-    if not Mass_center[int(Mass_center[cell_num, 12]), 6] == 0:
-        A = tree_branch(Particles, Mass_center,
-                        current_cell, int(Mass_center[cell_num, 12]), A)
-    if not Mass_center[int(Mass_center[cell_num, 13]), 6] == 0:
-        A = tree_branch(Particles, Mass_center,
-                        current_cell, int(Mass_center[cell_num, 13]), A)
-    if not Mass_center[int(Mass_center[cell_num, 14]), 6] == 0:
-        A = tree_branch(Particles, Mass_center,
-                        current_cell, int(Mass_center[cell_num, 14]), A)
-    if not Mass_center[int(Mass_center[cell_num, 15]), 6] == 0:
-        A = tree_branch(Particles, Mass_center,
-                        current_cell, int(Mass_center[cell_num, 15]), A)
-    if not Mass_center[int(Mass_center[cell_num, 16]), 6] == 0:
-        A = tree_branch(Particles, Mass_center,
-                        current_cell, int(Mass_center[cell_num, 16]), A)
-    if not Mass_center[int(Mass_center[cell_num, 17]), 6] == 0:
-        A = tree_branch(Particles, Mass_center,
-                        current_cell, int(Mass_center[cell_num, 17]), A)
-    if not Mass_center[int(Mass_center[cell_num, 18]), 6] == 0:
-        A = tree_branch(Particles, Mass_center,
-                        current_cell, int(Mass_center[cell_num, 18]), A)
-    if not Mass_center[int(Mass_center[cell_num, 19]), 6] == 0:
-        A = tree_branch(Particles, Mass_center,
-                        current_cell, int(Mass_center[cell_num, 19]), A)
-    return A
-
-
-def main_tree_branch(Particles, Mass_center, current_cell, cell_num, A):
-    # Функция, задающая ячейки, частицы в которых
-    # будут испытывать воздействие (15.04.18)
-    if not Mass_center[int(Mass_center[current_cell, 12]), 6] == 0:
-        A = sub_tree_branch(Particles, Mass_center,
-                            int(Mass_center[current_cell, 12]), cell_num, A)
-    if not Mass_center[int(Mass_center[current_cell, 13]), 6] == 0:
-        A = sub_tree_branch(Particles, Mass_center,
-                            int(Mass_center[current_cell, 13]), cell_num, A)
-    if not Mass_center[int(Mass_center[current_cell, 14]), 6] == 0:
-        A = sub_tree_branch(Particles, Mass_center,
-                            int(Mass_center[current_cell, 14]), cell_num, A)
-    if not Mass_center[int(Mass_center[current_cell, 15]), 6] == 0:
-        A = sub_tree_branch(Particles, Mass_center,
-                            int(Mass_center[current_cell, 15]), cell_num, A)
-    if not Mass_center[int(Mass_center[current_cell, 16]), 6] == 0:
-        A = sub_tree_branch(Particles, Mass_center,
-                            int(Mass_center[current_cell, 16]), cell_num, A)
-    if not Mass_center[int(Mass_center[current_cell, 17]), 6] == 0:
-        A = sub_tree_branch(Particles, Mass_center,
-                            int(Mass_center[current_cell, 17]), cell_num, A)
-    if not Mass_center[int(Mass_center[current_cell, 18]), 6] == 0:
-        A = sub_tree_branch(Particles, Mass_center,
-                            int(Mass_center[current_cell, 18]), cell_num, A)
-    if not Mass_center[int(Mass_center[current_cell, 19]), 6] == 0:
-        A = sub_tree_branch(Particles, Mass_center,
-                            int(Mass_center[current_cell, 19]), cell_num, A)
-    return A
-
-
-def tree_root(Particles, Mass_center, current_cell, cell_num):
+def tree_root(Particles, Mass_center):
     # Функция, с которой начинается tree code
     if use_multiprocessing:
         A0 = Parallel(n_jobs=8, verbose=0)(
                 delayed(tc.begin_tree)(Particles, Mass_center, i,
-                                       cell_num, n, eps_smooth)
+                                       n, eps_smooth)
                 for i in range(1, 9))
         A = A0[0] + A0[1] + A0[2] + A0[3] + A0[4] + A0[5] + A0[6] + A0[7]
     else:
         A = np.zeros([np.size(Particles, 0), 4])
-        if not Mass_center[int(Mass_center[current_cell, 12]), 6] == 0:
-            A = sub_tree_branch(Particles, Mass_center,
-                                int(Mass_center[current_cell, 12]),
-                                cell_num, A)
-        if not Mass_center[int(Mass_center[current_cell, 13]), 6] == 0:
-            A = sub_tree_branch(Particles, Mass_center,
-                                int(Mass_center[current_cell, 13]),
-                                cell_num, A)
-        if not Mass_center[int(Mass_center[current_cell, 14]), 6] == 0:
-            A = sub_tree_branch(Particles, Mass_center,
-                                int(Mass_center[current_cell, 14]),
-                                cell_num, A)
-        if not Mass_center[int(Mass_center[current_cell, 15]), 6] == 0:
-            A = sub_tree_branch(Particles, Mass_center,
-                                int(Mass_center[current_cell, 15]),
-                                cell_num, A)
-        if not Mass_center[int(Mass_center[current_cell, 16]), 6] == 0:
-            A = sub_tree_branch(Particles, Mass_center,
-                                int(Mass_center[current_cell, 16]),
-                                cell_num, A)
-        if not Mass_center[int(Mass_center[current_cell, 17]), 6] == 0:
-            A = sub_tree_branch(Particles, Mass_center,
-                                int(Mass_center[current_cell, 17]),
-                                cell_num, A)
-        if not Mass_center[int(Mass_center[current_cell, 18]), 6] == 0:
-            A = sub_tree_branch(Particles, Mass_center,
-                                int(Mass_center[current_cell, 18]),
-                                cell_num, A)
-        if not Mass_center[int(Mass_center[current_cell, 19]), 6] == 0:
-            A = sub_tree_branch(Particles, Mass_center,
-                                int(Mass_center[current_cell, 19]),
-                                cell_num, A)
-    A *= G
+        if not Mass_center[int(Mass_center[1, 12]), 6] == 0:
+            A += tc.begin_tree(Particles, Mass_center, 1, n, eps_smooth)
+        if not Mass_center[int(Mass_center[2, 13]), 6] == 0:
+            A += tc.begin_tree(Particles, Mass_center, 2, n, eps_smooth)
+        if not Mass_center[int(Mass_center[3, 14]), 6] == 0:
+            A += tc.begin_tree(Particles, Mass_center, 3, n, eps_smooth)
+        if not Mass_center[int(Mass_center[4, 15]), 6] == 0:
+            A += tc.begin_tree(Particles, Mass_center, 4, n, eps_smooth)
+        if not Mass_center[int(Mass_center[5, 16]), 6] == 0:
+            A += tc.begin_tree(Particles, Mass_center, 5, n, eps_smooth)
+        if not Mass_center[int(Mass_center[6, 17]), 6] == 0:
+            A += tc.begin_tree(Particles, Mass_center, 6, n, eps_smooth)
+        if not Mass_center[int(Mass_center[7, 18]), 6] == 0:
+            A += tc.begin_tree(Particles, Mass_center, 7, n, eps_smooth)
+        if not Mass_center[int(Mass_center[8, 19]), 6] == 0:
+            A += tc.begin_tree(Particles, Mass_center, 8, n, eps_smooth)
     return A
 
 
@@ -587,9 +319,10 @@ def tree_code_gravity(Y):
 #    computing_time = time.time() - start
 #    print("Работа с ячейками", computing_time, "с")
 #    start = time.time()
-    Y[:, 7:11] = tree_root(Y, R_final, 0, 0)
+    Y[:, 7:11] = tree_root(Y, R_final)
     if Y[0, 11] < 0:
         Y = N_body_direct(Y)
+    Y[:, 7:11] *= G
 #    computing_time = time.time() - start
 #    print("Рассчет взаимодействия", computing_time, "с")
     Y[:, 3:6] += Y[:, 7:10] * time_step / 2
@@ -627,21 +360,31 @@ def kinetic_energy_Newton(Y):
     return E
 
 
-def max_dT(Y, E_kinetic):
+def max_dT(Y):
     # Функция, определяющая максимальную разницу
     # кинетической энергии частиц за шаг
     E = kinetic_energy_Newton(Y)
-    E = E - E_kinetic[:, 0]
-    dE = np.amax(E)
+    E = E - Y[:, 12]
+    dE_plus = np.amax(E)
+    dE_minus = np.amin(E)
+    if abs(dE_minus) > dE_plus:
+        dE = dE_minus
+    else:
+        dE = dE_plus
     return dE
 
 
-def max_dU(Y, E_potential):
+def max_dU(Y):
     # Функция, определяющая максимальную разницу
     # потенциальной энергии частиц за шаг
     E = potential_energy_Newton(Y)
-    E = E - E_potential[:, 1]
-    dE = np.amax(E)
+    E = E - Y[:, 13]
+    dE_plus = np.amax(E)
+    dE_minus = np.amin(E)
+    if abs(dE_minus) > dE_plus:
+        dE = dE_minus
+    else:
+        dE = dE_plus
     return dE
 
 
@@ -652,9 +395,9 @@ def plot_max_dE_kinetic(dE):
     ax = fig.add_subplot(111)
     ax.plot(dE[1:, 0], dE[1:, 4])
     ax.set_xlabel('Номер шага')
-    ax.set_ylabel('Максимальная разница в кинетичесой энергии')
+    ax.set_ylabel('Kinetic energy')
+    ax.set_title('Max kinetic energy difference per step')
     plt.savefig('Максимальное изменение кинетической энергии за шаг', dpi=640)
-    print('Максимальное изменение кинетической энергии за шаг:')
     plt.show()
 
 
@@ -665,9 +408,9 @@ def plot_max_dE_potential(dE):
     ax = fig.add_subplot(111)
     ax.plot(dE[1:, 0], dE[1:, 5])
     ax.set_xlabel('Номер шага')
-    ax.set_ylabel('Максимальная разница в потенциальной энергии')
+    ax.set_ylabel('Potential energy')
+    ax.set_title('Max potential energy difference per step')
     plt.savefig('Максимальное изменение потенциальной энергии за шаг', dpi=640)
-    print('Максимальное изменение потенциальной энергии за шаг:')
     plt.show()
 
 
@@ -697,72 +440,56 @@ def system_energy_Newton(Y):
     return E
 
 
-def plot_system_kinetic(E):
+def plot_avg(E):
     # Функция, создающая график кинетической энергии частиц
     # за все время работы программы
+    Energy = np.copy(E[:, 1:3])
+    Energy /= N
     fig = plt.figure()
-    ax = fig.add_subplot(111)
+    ax = fig.add_subplot(211)
+    ax1 = fig.add_subplot(212)
+    ax.plot(E[:, 0], Energy[:, 0])
+    ax1.plot(E[:, 0], Energy[:, 1])
+    ax.xaxis.set_ticklabels([])
+    ax1.set_xlabel('Номер шага')
+    ax.set_ylabel('Kinetic enegry')
+    ax1.set_ylabel('Potential energy')
+    ax.set_title('Average energy')
+    ax1.set_title(' ')
+    plt.savefig('Средняя энергия материальной точки', dpi=640)
+    plt.show()
+
+
+def plot_system_enegry(E):
+    # Функция, создающая график потенциальной энергии частиц
+    # за все время работы программы
+    fig = plt.figure()
+    ax = fig.add_subplot(211)
+    ax1 = fig.add_subplot(212)
     ax.plot(E[:, 0], E[:, 1])
-    ax.set_xlabel('Номер шага')
-    ax.set_ylabel('Кинетическая энергия')
-    plt.savefig('Кинетическая энергия системы', dpi=640)
-    print('Кинетическая энергия за все время работы программы:')
+    ax1.plot(E[:, 0], Energy[:, 2])
+    ax.xaxis.set_ticklabels([])
+    ax1.set_xlabel('Номер шага')
+    ax.set_ylabel('Kinetic enegry')
+    ax1.set_ylabel('Potential energy')
+    ax.set_title('Energy at step')
+    plt.savefig('Кинетическая и потенциальная энергия системы', dpi=640)
     plt.show()
 
 
-def plot_avg_kinetic(E):
-    # Функция, создающая график кинетической энергии частиц
-    # за все время работы программы
-    Energy = np.copy(E[:, 1])
-    Energy /= N
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax.plot(E[:, 0], Energy)
-    ax.set_xlabel('Номер шага')
-    ax.set_ylabel('Кинетическая энергия')
-    plt.savefig('Средняя кинетическая энергия материальной точки', dpi=640)
-    print('Средняя кинетическая энергия за все время работы программы:')
-    plt.show()
-
-
-def plot_avg_potential(E):
-    # Функция, создающая график кинетической энергии частиц
-    # за все время работы программы
-    Energy = np.copy(E[:, 2])
-    Energy /= N
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax.plot(E[:, 0], Energy)
-    ax.set_xlabel('Номер шага')
-    ax.set_ylabel('Потенциальная энергия')
-    plt.savefig('Средняя потенциальная энергия материальной точки', dpi=640)
-    print('Средняя потенциальная энергия за все время работы программы:')
-    plt.show()
-
-
-def plot_system_potential(E):
+def plot_combined_energy(E):
     # Функция, создающая график потенциальной энергии частиц
     # за все время работы программы
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    ax.plot(E[:, 0], E[:, 2])
+    ax.plot(E[:, 0], E[:, 3], label='Полная энергия', color='black')
+    ax.plot(E[:, 0], E[:, 1], label='Кинетическая энергия', color='red')
+    ax.plot(E[:, 0], E[:, 2], label='Потенциальная энергия', color='blue')
     ax.set_xlabel('Номер шага')
-    ax.set_ylabel('Потенциальная энергия')
-    plt.savefig('Потенциальная энергия системы', dpi=640)
-    print('Потенциальная энергия за все время работы программы:')
-    plt.show()
-
-
-def plot_system_energy(E):
-    # Функция, создающая график потенциальной энергии частиц
-    # за все время работы программы
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax.plot(E[:, 0], E[:, 3])
-    ax.set_xlabel('Номер шага')
-    ax.set_ylabel('Полная энергия')
+    ax.set_ylabel('Энергия')
+    ax.set_title('Полная энергия системы')
+    plt.legend()
     plt.savefig('Полная энергия системы', dpi=640)
-    print('Полная энергия за все время работы программы:')
     plt.show()
 
 
@@ -841,7 +568,7 @@ def input_float_value(msg_0, msg_00, msg_000, msg_1, msg_2):
 
 def input_float_less_1_value(msg_0, msg_00, msg_1, crit):
     print(msg_0)
-    print(msg_00)
+    print(msg_00 + str(crit))
     continue_input = True
     while continue_input:
         try:
@@ -851,8 +578,7 @@ def input_float_less_1_value(msg_0, msg_00, msg_1, crit):
             else:
                 print('Введено некорректное значение. Попробуйте еще раз')
         except ValueError:
-            msg__1 = msg_1 + str(crit)
-            print(msg__1)
+            print(msg_1)
     return variable
 
 # ===========================================================================
@@ -935,7 +661,7 @@ if __name__ == "__main__":
 
 # Временной интервал
     # time_step = pow(10, 13)  # с
-    time_step = 25.0  # 10^12 с
+    time_step = 100.0  # 0.000025  # 10^12 с
     # time_step = 0.01  # 10^15 с
 
 # Процентное распределение материи по типу
@@ -944,7 +670,7 @@ if __name__ == "__main__":
     v_m = 0.05  # Видимая материя
 
 # Параметр "сглаживания" гравитационного взаимодействия на близких дистанциях
-    eps_smooth = 0.0  # кпк
+    eps_smooth = 5.0  # кпк
 
 # Параметры, которые нужны чаще всего (можно и нужно трогать)
 # Количество ячеек по одной оси координат (для tree codes) в виде 2^(n)
@@ -952,7 +678,7 @@ if __name__ == "__main__":
 
 # Минимальный размер ячейки по одной оси координат
     # Distance = 2 * 3.08567758 * pow(10, 22) # м
-    Distance = 5 * m.pow(10, 3)  # кпк
+    Distance = 10 * m.pow(10, 3)  # кпк
     # Distance = 5 # Мпк
 
 # Задаем первоначальный размер системы в единицах "Distance"
@@ -971,30 +697,30 @@ if __name__ == "__main__":
 # Начальные угловые скорости эллипсоида
     w_x = 0.0
     w_y = 0.0
-    w_z = 0.0000017
+    w_z = 0.0000005
 
 # Средняя масса наблюдаемых объектов и их пекулярная скорость
     # m_avg = 1.98892 * pow(10, 41) # кг
     # v_avg = 0 #4 * pow(10, 5) / np.sqrt(3) # м/с
     m_avg = pow(10, 11)  # масс Солнц
-    v_avg = 0.0000007  # 1.3 * pow(10, -2) / np.sqrt(3) # кпк/(10^12 c)
-    # m_avg = 1 #масс Млечного пути
+    v_avg = 0.0  # 1.3 * pow(10, -2) / np.sqrt(3) # кпк/(10^12 c)
+#     m_avg = 1 #масс Млечного пути
     # v_avg = 0 #1.3 * pow(10, -2) / np.sqrt(3) # Мпк/(10^15 c)
 
 # Количество частиц
     N = 1000
 # Число шагов
-    Steps = 1000
+    Steps = 1
 # Номера шагов, на которых требуется "сфотографировать положение всех
 # материальных точек
-    make_prelaunch_screenshot = True
-    scr_step = [0, 2500, 5000, 7500]
+    make_prelaunch_screenshot = False
+    scr_step = [1000, 2000, 3000, 4000, 5000]
 # Тип сгенерированной системы (обязательно заполнить!)
     system_generation_type = 'last'
 # Использовать несколько процессов для вычислений
     use_multiprocessing = False
 # Использовать данные, введенные вручную
-    use_manual_input = False
+    use_manual_input = True
 # Использовать телеметрию
     use_telemetry = True
 # Обратить время вспять
@@ -1023,6 +749,7 @@ if __name__ == "__main__":
             if system_generation_type == 'ellipsoid':
                 N = input_int_value(msg_N_0, msg_N_1, msg_N_2)
                 w_crit = 2 * c / (n * Distance)
+                print(w_crit)
                 a_inp = input_float_less_1_value(msg_a_0, msg_abc_0,
                                                  msg_abc_1, '')
                 b_inp = input_float_less_1_value(msg_b_0, msg_abc_0,
@@ -1155,12 +882,14 @@ if __name__ == "__main__":
     except ValueError:
         not_forbid_launch = False
         print('Неприемлимое число материальных точек')
+    migration = np.zeros([np.size(X, 0), 2])
+    X = np.hstack((X, migration))
+    np.savetxt('last config.txt', X)
     if not_forbid_launch:
         try:
             if make_prelaunch_screenshot:
                 screenshot(X, 'Шаг 0', marker_size)
             Energy = np.zeros([Steps, 6])
-            dE = np.zeros([N, 2])
             start = time.time()
             for q in range(Steps):
                 speed_limit(X)
@@ -1175,10 +904,10 @@ if __name__ == "__main__":
                              system_kinetic_energy(X),
                              system_potential_energy(X),
                              system_energy_Newton(X),
-                             max_dT(X, dE),
-                             max_dU(X, dE)]
-                dE[:, 0] = kinetic_energy_Newton(X)
-                dE[:, 1] = potential_energy_Newton(X)
+                             max_dT(X),
+                             max_dU(X)]
+                X[:, 12] = kinetic_energy_Newton(X)
+                X[:, 13] = potential_energy_Newton(X)
                 if q in scr_step:
                     screenshot(X, 'Шаг ' + str(q), marker_size)
             computing_time = time.time() - start
@@ -1187,29 +916,26 @@ if __name__ == "__main__":
                 momentum_of_system(X)
                 plot_max_dE_kinetic(Energy)
                 plot_max_dE_potential(Energy)
-                plot_avg_kinetic(Energy)
-                plot_avg_potential(Energy)
-                plot_system_kinetic(Energy)
-                plot_system_potential(Energy)
-                plot_system_energy(Energy)
+                plot_avg(Energy)
+                plot_system_enegry(Energy)
+                plot_combined_energy(Energy)
         except KeyboardInterrupt:
             print('Работа программы прервана')
             momentum_of_system(X)
             plot_max_dE_kinetic(Energy)
             plot_max_dE_potential(Energy)
-            plot_avg_kinetic(Energy)
-            plot_avg_potential(Energy)
-            plot_system_kinetic(Energy)
-            plot_system_potential(Energy)
-            plot_system_energy(Energy)
+            plot_avg(Energy)
+            plot_system_enegry(Energy)
+            plot_combined_energy(Energy)
         print('Сохранить финальную конфигурацию системы?')
         print('y/n')
         input_variable = input()
-        if (input_variable == 'y') or (input_variable == 'n'):
+        if input_variable == 'y':
             np.savetxt('final config.txt', X)
+        elif input_variable == 'n':
+            print('Конфигурация не будет сохранена')
         else:
             print('Введено недопустимое значение')
         input()
 # ===========================================================================
 # ^ Область с исполняемым кодом ^
-
