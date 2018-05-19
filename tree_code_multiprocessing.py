@@ -29,6 +29,35 @@ def smooth_distance(Particles, Number_1, Nubmer_2):
     return delta_soft  # * delta_soft * delta_soft
 
 
+def g_force_Newton(Particles, part_num, l):
+    # Ускорение по Ньютону
+    a = np.zeros([4])
+    r_1 = smooth_distance(Particles, part_num, l)
+    r_3 = r_1 * r_1 * r_1
+    a[0] = Particles[part_num, 6] \
+        * (Particles[part_num, 0] - Particles[l, 0]) / r_3
+    a[1] = Particles[part_num, 6] \
+        * (Particles[part_num, 1] - Particles[l, 1]) / r_3
+    a[2] = Particles[part_num, 6] \
+        * (Particles[part_num, 2] - Particles[l, 2]) / r_3
+    a[3] = - Particles[part_num, 6] / r_1
+    return a
+
+
+def N_body_direct(X0):
+    # Ньютоновская гравитация, метод частица-частица
+    total_part = np.size(X0, 0)
+    A = np.zeros((total_part, 4))
+    part_num = 0
+    while X0[part_num, 11] < 0:
+        for l in range(total_part):
+            if not part_num == l:
+                A[l] = g_force_Newton(X0, part_num, l)
+        part_num += 1
+    X0[:, 7:11] += A
+    return X0
+
+
 def quadrupole(Mass_center, num, r_1, r_3, delta_x, delta_y, delta_z):
     # Функция, расчитывающая квадрупольный вклад
     r_5 = r_3 * r_1 * r_1
@@ -58,8 +87,8 @@ def int_C_to_P(Particles, Mass_center, Part_num, cell_num):
     cell_to_body = np.array([delta_x, delta_y, delta_z, 0])
     cell_to_body[0:3] *= Mass_center[cell_num, 6] / r_3
     cell_to_body[3] = - Mass_center[cell_num, 6] / r_1
-    cell_to_body += quadrupole(Mass_center, cell_num, r_1, r_3,
-                               delta_x, delta_y, delta_z)
+#    cell_to_body += quadrupole(Mass_center, cell_num, r_1, r_3,
+#                               delta_x, delta_y, delta_z)
     return cell_to_body
 
 
@@ -73,7 +102,6 @@ def int_Ps_to_P(Particles, Part_num, Mass_center, cell_num):
     phi = 0
     n1 = int(Mass_center[cell_num, 12])
     n2 = int(Mass_center[cell_num, 13])
-
     if (Part_num >= n1) and (Part_num < n2):
         for num in range(n1, n2):
             if not num == Part_num:
@@ -233,11 +261,11 @@ def main_tree_branch(Particles, Mass_center, current_cell, cell_num, A):
 
 
 def begin_tree(Particles, Mass_center, current_cell,
-               cell_num, n1, smooth):
+               n1, smooth):
     global n
     global eps_smooth
     n = n1
     eps_smooth = smooth
     A = np.zeros([np.size(Particles, 0), 4])
-    A = sub_tree_branch(Particles, Mass_center, current_cell, cell_num, A)
+    A = sub_tree_branch(Particles, Mass_center, current_cell, 0, A)
     return A
