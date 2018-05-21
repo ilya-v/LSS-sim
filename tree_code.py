@@ -10,122 +10,21 @@ import numpy as np
 import tree_code_math as tcm
 
 
-def part_distance(Particle_1, Particle_2, Number_1, Nubmer_2):
-    # Функция, которая выдает растояние между частицам 1 и 2
-    delta_x = Particle_1[Number_1, 0] - Particle_2[Nubmer_2, 0]
-    delta_y = Particle_1[Number_1, 1] - Particle_2[Nubmer_2, 1]
-    delta_z = Particle_1[Number_1, 2] - Particle_2[Nubmer_2, 2]
-    return m.sqrt(delta_x * delta_x
-                  + delta_y * delta_y
-                  + delta_z * delta_z)
-
-
-def smooth_distance(Particles, Number_1, Nubmer_2):
-    # Функция, выдающая растояние между частицам 1 и 2
-    delta_x = Particles[Number_1, 0] - Particles[Nubmer_2, 0]
-    delta_y = Particles[Number_1, 1] - Particles[Nubmer_2, 1]
-    delta_z = Particles[Number_1, 2] - Particles[Nubmer_2, 2]
-    delta_soft = m.sqrt(delta_x * delta_x + delta_y * delta_y
-                        + delta_z * delta_z + eps_smooth * eps_smooth)
-    return delta_soft  # * delta_soft * delta_soft
-
-
-def g_force_Newton(Particles, part_num, l):
-    # Ускорение по Ньютону
-    a = np.zeros([4])
-    r_1 = tcm.smooth_distance(Particles, part_num, l, eps_smooth)
-#    smooth_distance(Particles, part_num, l)
-    r_3 = r_1 * r_1 * r_1
-    a[0] = Particles[part_num, 6] \
-        * (Particles[part_num, 0] - Particles[l, 0]) / r_3
-    a[1] = Particles[part_num, 6] \
-        * (Particles[part_num, 1] - Particles[l, 1]) / r_3
-    a[2] = Particles[part_num, 6] \
-        * (Particles[part_num, 2] - Particles[l, 2]) / r_3
-    a[3] = - Particles[part_num, 6] / r_1
-    return a
-
-
-def N_body_direct(X0):
+def N_body_direct(X0, smooth):
     # Ньютоновская гравитация, метод частица-частица
     total_part = np.size(X0, 0)
     A = np.zeros((total_part, 4))
     part_num = 0
     while X0[part_num, 11] < 0:
-        for l in range(total_part):
-            if not part_num == l:
-                A[l] = g_force_Newton(X0, part_num, l)
+        A += tcm.g_force_Newton(X0, part_num, total_part, smooth)
+#        for l in range(total_part):
+#            if not part_num == l:
+#                A[l] = g_force_Newton(X0, part_num, l, smooth)
         part_num += 1
+        if part_num == total_part:
+            break
     X0[:, 7:11] += A
     return X0
-
-
-def quadrupole(Mass_center, num, r_1, r_3, delta_x, delta_y, delta_z):
-    # Функция, расчитывающая квадрупольный вклад
-    r_5 = r_3 * r_1 * r_1
-    r_7 = r_5 * r_1 * r_1
-    DR = (Mass_center[num, 7] * delta_x * delta_y
-          + Mass_center[num, 8] * delta_x * delta_z
-          + Mass_center[num, 9] * delta_y * delta_z) * 5
-    a_x = - (Mass_center[num, 7] * delta_y + Mass_center[num, 8] * delta_z) \
-        / r_5 + DR * delta_x / r_7
-    a_y = - (Mass_center[num, 7] * delta_x + Mass_center[num, 9] * delta_z) \
-        / r_5 + DR * delta_y / r_7
-    a_z = - (Mass_center[num, 8] * delta_x + Mass_center[num, 9] * delta_y) \
-        / r_5 + DR * delta_z / r_7
-    phi = DR / (5 * r_5)
-    return np.array([a_x, a_y, a_z, - phi])
-
-
-def int_C_to_P(Particles, Mass_center, Part_num, cell_num):
-    # Функция, рассчитывающая ускорение частицы под номером Part_num,
-    # полученное за счет гравитационного мультипольного взаимодействия с
-    # частицами в ячейке с номером cell_num.
-    r_1 = part_distance(Particles, Mass_center, Part_num, cell_num)
-    r_3 = r_1 * r_1 * r_1
-    delta_x = Mass_center[cell_num, 0] - Particles[Part_num, 0]
-    delta_y = Mass_center[cell_num, 1] - Particles[Part_num, 1]
-    delta_z = Mass_center[cell_num, 2] - Particles[Part_num, 2]
-    cell_to_body = np.array([delta_x, delta_y, delta_z, 0])
-    cell_to_body[0:3] *= Mass_center[cell_num, 6] / r_3
-    cell_to_body[3] = - Mass_center[cell_num, 6] / r_1
-#    cell_to_body += quadrupole(Mass_center, cell_num, r_1, r_3,
-#                               delta_x, delta_y, delta_z)
-    return cell_to_body
-
-
-def int_Ps_to_P(Particles, Part_num, n1, n2):
-    # Функция, рассчитывающая ускорение частицы под номером Part_num,
-    # полученное за счет гравитационного взаимодействия с частицами
-    # в ячейке с номером cell_num. (Для использования в методе  Tree code)
-    a_x = 0
-    a_y = 0
-    a_z = 0
-    phi = 0
-    if (Part_num >= n1) and (Part_num < n2):
-        for num in range(n1, n2):
-            if not num == Part_num:
-                r_1 = smooth_distance(Particles, Part_num, num)
-                r_3 = r_1 * r_1 * r_1
-                a_x += Particles[num, 6] \
-                    * (Particles[num, 0] - Particles[Part_num, 0]) / r_3
-                a_y += Particles[num, 6] \
-                    * (Particles[num, 1] - Particles[Part_num, 1]) / r_3
-                a_z += Particles[num, 6] \
-                    * (Particles[num, 2] - Particles[Part_num, 2]) / r_3
-                phi += Particles[num, 6] / r_1
-    else:
-        for num in range(n1, n2):
-            r_1 = smooth_distance(Particles, Part_num, num)
-            r_3 = r_1 * r_1 * r_1
-            a_x += Particles[num, 6] \
-                * (Particles[num, 0] - Particles[Part_num, 0]) / r_3
-            a_y += Particles[num, 6] \
-                * (Particles[num, 1] - Particles[Part_num, 1]) / r_3
-            a_z += Particles[num, 6] \
-                * (Particles[num, 2] - Particles[Part_num, 2]) / r_3
-            phi += Particles[num, 6] / r_1
-    return np.array([a_x, a_y, a_z, - phi])
 
 
 def branch_to_leafes(Mass_center, current_cell, cell_num, Numbers):
@@ -272,3 +171,107 @@ def begin_tree(Particles, Mass_center, current_cell, n1, smooth):
     A = np.zeros([np.size(Particles, 0), 4])
     A = sub_tree_branch(Particles, Mass_center, current_cell, 0, A)
     return A
+
+
+# def part_distance(Particle_1, Particle_2, Number_1, Nubmer_2):
+#    # Функция, которая выдает растояние между частицам 1 и 2
+#    delta_x = Particle_1[Number_1, 0] - Particle_2[Nubmer_2, 0]
+#    delta_y = Particle_1[Number_1, 1] - Particle_2[Nubmer_2, 1]
+#    delta_z = Particle_1[Number_1, 2] - Particle_2[Nubmer_2, 2]
+#    return m.sqrt(delta_x * delta_x
+#                  + delta_y * delta_y
+#                  + delta_z * delta_z)
+#
+#
+# def smooth_distance(Particles, Number_1, Nubmer_2):
+#    # Функция, выдающая растояние между частицам 1 и 2
+#    delta_x = Particles[Number_1, 0] - Particles[Nubmer_2, 0]
+#    delta_y = Particles[Number_1, 1] - Particles[Nubmer_2, 1]
+#    delta_z = Particles[Number_1, 2] - Particles[Nubmer_2, 2]
+#    delta_soft = m.sqrt(delta_x * delta_x + delta_y * delta_y
+#                        + delta_z * delta_z + eps_smooth * eps_smooth)
+#    return delta_soft  # * delta_soft * delta_soft
+#
+#
+# def g_force_Newton(Particles, part_num, l, smooth):
+#    # Ускорение по Ньютону
+#    a = np.zeros([4])
+#    r_1 = tcm.smooth_distance(Particles, part_num, l, smooth)
+# #    smooth_distance(Particles, part_num, l)
+#    r_3 = r_1 * r_1 * r_1
+#    a[0] = Particles[part_num, 6] \
+#        * (Particles[part_num, 0] - Particles[l, 0]) / r_3
+#    a[1] = Particles[part_num, 6] \
+#        * (Particles[part_num, 1] - Particles[l, 1]) / r_3
+#    a[2] = Particles[part_num, 6] \
+#        * (Particles[part_num, 2] - Particles[l, 2]) / r_3
+#    a[3] = - Particles[part_num, 6] / r_1
+#    return a
+#
+#
+# def quadrupole(Mass_center, num, r_1, r_3, delta_x, delta_y, delta_z):
+#    # Функция, расчитывающая квадрупольный вклад
+#    r_5 = r_3 * r_1 * r_1
+#    r_7 = r_5 * r_1 * r_1
+#    DR = (Mass_center[num, 7] * delta_x * delta_y
+#          + Mass_center[num, 8] * delta_x * delta_z
+#          + Mass_center[num, 9] * delta_y * delta_z) * 5
+#    a_x = - (Mass_center[num, 7] * delta_y + Mass_center[num, 8] * delta_z) \
+#        / r_5 + DR * delta_x / r_7
+#    a_y = - (Mass_center[num, 7] * delta_x + Mass_center[num, 9] * delta_z) \
+#        / r_5 + DR * delta_y / r_7
+#    a_z = - (Mass_center[num, 8] * delta_x + Mass_center[num, 9] * delta_y) \
+#        / r_5 + DR * delta_z / r_7
+#    phi = DR / (5 * r_5)
+#    return np.array([a_x, a_y, a_z, - phi])
+#
+#
+# def int_C_to_P(Particles, Mass_center, Part_num, cell_num):
+#    # Функция, рассчитывающая ускорение частицы под номером Part_num,
+#    # полученное за счет гравитационного мультипольного взаимодействия с
+#    # частицами в ячейке с номером cell_num.
+#    r_1 = part_distance(Particles, Mass_center, Part_num, cell_num)
+#    r_3 = r_1 * r_1 * r_1
+#    delta_x = Mass_center[cell_num, 0] - Particles[Part_num, 0]
+#    delta_y = Mass_center[cell_num, 1] - Particles[Part_num, 1]
+#    delta_z = Mass_center[cell_num, 2] - Particles[Part_num, 2]
+#    cell_to_body = np.array([delta_x, delta_y, delta_z, 0])
+#    cell_to_body[0:3] *= Mass_center[cell_num, 6] / r_3
+#    cell_to_body[3] = - Mass_center[cell_num, 6] / r_1
+# #    cell_to_body += quadrupole(Mass_center, cell_num, r_1, r_3,
+# #                               delta_x, delta_y, delta_z)
+#    return cell_to_body
+#
+#
+# def int_Ps_to_P(Particles, Part_num, n1, n2):
+#    # Функция, рассчитывающая ускорение частицы под номером Part_num,
+#    # полученное за счет гравитационного взаимодействия с частицами
+#    # в ячейке с номером cell_num. (Для использования в методе  Tree code)
+#    a_x = 0
+#    a_y = 0
+#    a_z = 0
+#    phi = 0
+#    if (Part_num >= n1) and (Part_num < n2):
+#        for num in range(n1, n2):
+#            if not num == Part_num:
+#                r_1 = smooth_distance(Particles, Part_num, num)
+#                r_3 = r_1 * r_1 * r_1
+#                a_x += Particles[num, 6] \
+#                    * (Particles[num, 0] - Particles[Part_num, 0]) / r_3
+#                a_y += Particles[num, 6] \
+#                    * (Particles[num, 1] - Particles[Part_num, 1]) / r_3
+#                a_z += Particles[num, 6] \
+#                    * (Particles[num, 2] - Particles[Part_num, 2]) / r_3
+#                phi += Particles[num, 6] / r_1
+#    else:
+#        for num in range(n1, n2):
+#            r_1 = smooth_distance(Particles, Part_num, num)
+#            r_3 = r_1 * r_1 * r_1
+#            a_x += Particles[num, 6] \
+#                * (Particles[num, 0] - Particles[Part_num, 0]) / r_3
+#            a_y += Particles[num, 6] \
+#                * (Particles[num, 1] - Particles[Part_num, 1]) / r_3
+#            a_z += Particles[num, 6] \
+#                * (Particles[num, 2] - Particles[Part_num, 2]) / r_3
+#            phi += Particles[num, 6] / r_1
+#    return np.array([a_x, a_y, a_z, - phi])
